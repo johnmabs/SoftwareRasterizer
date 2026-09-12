@@ -100,6 +100,33 @@ void ShutdownD3D11()
     }
 }
 
+void Render()
+{
+    const float clearColor[] =
+    {
+        0.1f,
+        0.2f,
+        0.4f,
+        1.0f
+    };
+
+    gContext->OMSetRenderTargets(
+        1,
+        &gRenderTarget,
+        nullptr
+    );
+
+    gContext->ClearRenderTargetView(
+        gRenderTarget,
+        clearColor
+    );
+
+    gSwapChain->Present(
+        1,
+        0
+    );
+}
+
 LRESULT CALLBACK WindowProc(
     HWND hwnd,
     UINT message,
@@ -188,7 +215,7 @@ int WINAPI WinMain(
         else
         {
             // Update();
-            // Render();
+            Render();
         }
     }
 
