@@ -1,13 +1,18 @@
 #include <Windows.h>
-#include <d3d11.h>
-#include <dxgi.h>
+
 #include <cstring>
 #include <cstdint>
 
-#include "Graphics/Software/VirtualFramebuffer.h";
+#include <d3d11.h>
+#include <dxgi.h>
+#include <d3dcompiler.h>
+
+
+#include "Graphics/Software/VirtualFramebuffer.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "d3dcompiler.lib")
 
 ID3D11Device* gDevice = nullptr;
 ID3D11DeviceContext* gContext = nullptr;
@@ -15,6 +20,12 @@ IDXGISwapChain* gSwapChain = nullptr;
 ID3D11RenderTargetView* gRenderTarget = nullptr;
 
 ID3D11Texture2D* gVirtualScreenTexture = nullptr;
+
+ID3D11ShaderResourceView* gVirtualScreenSRV = nullptr;
+ID3D11SamplerState* gPointSampler = nullptr;
+
+ID3D11VertexShader* gFullscreenVS = nullptr;
+ID3D11PixelShader* gFullscreenPS = nullptr;
 
 bool InitializeD3D11(HWND hwnd)
 {
@@ -80,6 +91,37 @@ bool InitializeD3D11(HWND hwnd)
 }
 void ShutdownD3D11()
 {
+
+    if (gFullscreenPS)
+    {
+        gFullscreenPS->Release();
+        gFullscreenPS = nullptr;
+    }
+
+    if (gFullscreenVS)
+    {
+        gFullscreenVS->Release();
+        gFullscreenVS = nullptr;
+    }
+
+    if (gPointSampler)
+    {
+        gPointSampler->Release();
+        gPointSampler = nullptr;
+    }
+
+    if (gVirtualScreenSRV)
+    {
+        gVirtualScreenSRV->Release();
+        gVirtualScreenSRV = nullptr;
+    }
+
+    if (gVirtualScreenTexture)
+    {
+        gVirtualScreenTexture->Release();
+        gVirtualScreenTexture = nullptr;
+    }
+
     if (gRenderTarget)
     {
         gRenderTarget->Release();
@@ -96,12 +138,6 @@ void ShutdownD3D11()
     {
         gContext->Release();
         gContext = nullptr;
-    }
-
-    if (gVirtualScreenTexture)
-    {
-        gVirtualScreenTexture->Release();
-        gVirtualScreenTexture = nullptr;
     }
 
     if (gDevice)
@@ -137,6 +173,137 @@ bool CreateVirtualScreenTexture(
             nullptr,
             &gVirtualScreenTexture
         );
+
+    return SUCCEEDED(result);
+}
+
+bool CreateVirtualScreenSRV()
+{
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+
+    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = 1;
+
+    HRESULT result =
+        gDevice->CreateShaderResourceView(
+            gVirtualScreenTexture,
+            &srvDesc,
+            &gVirtualScreenSRV
+        );
+
+    return SUCCEEDED(result);
+}
+
+bool CreatePointSampler()
+{
+    D3D11_SAMPLER_DESC desc = {};
+
+    desc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+
+    desc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    desc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    desc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+
+    desc.MinLOD = 0.0f;
+    desc.MaxLOD = D3D11_FLOAT32_MAX;
+
+    HRESULT result =
+        gDevice->CreateSamplerState(
+            &desc,
+            &gPointSampler
+        );
+
+    return SUCCEEDED(result);
+}
+
+bool CreateFullscreenShaders()
+{
+    ID3DBlob* vertexBlob = nullptr;
+    ID3DBlob* pixelBlob = nullptr;
+    ID3DBlob* errorBlob = nullptr;
+
+    HRESULT result =
+        D3DCompileFromFile(
+            L"shaders/FullscreenVS.hlsl",
+            nullptr,
+            nullptr,
+            "main",
+            "vs_5_0",
+            0,
+            0,
+            &vertexBlob,
+            &errorBlob
+        );
+
+    if (FAILED(result))
+    {
+        if (errorBlob)
+        {
+            OutputDebugStringA(
+                static_cast<const char*>(
+                    errorBlob->GetBufferPointer()
+                    )
+            );
+
+            errorBlob->Release();
+        }
+
+        return false;
+    }
+
+    result = gDevice->CreateVertexShader(
+        vertexBlob->GetBufferPointer(),
+        vertexBlob->GetBufferSize(),
+        nullptr,
+        &gFullscreenVS
+    );
+
+    vertexBlob->Release();
+
+    if (FAILED(result))
+    {
+        return false;
+    }
+
+    result =
+        D3DCompileFromFile(
+            L"shaders/FullscreenPS.hlsl",
+            nullptr,
+            nullptr,
+            "main",
+            "ps_5_0",
+            0,
+            0,
+            &pixelBlob,
+            &errorBlob
+        );
+
+    if (FAILED(result))
+    {
+        if (errorBlob)
+        {
+            OutputDebugStringA(
+                static_cast<const char*>(
+                    errorBlob->GetBufferPointer()
+                    )
+            );
+
+            errorBlob->Release();
+        }
+
+        return false;
+    }
+
+    result = gDevice->CreatePixelShader(
+        pixelBlob->GetBufferPointer(),
+        pixelBlob->GetBufferSize(),
+        nullptr,
+        &gFullscreenPS
+    );
+
+    pixelBlob->Release();
 
     return SUCCEEDED(result);
 }
@@ -199,13 +366,17 @@ void UploadFramebuffer(
     );
 }
 
-void Render()
+void Render(
+    const VirtualFramebuffer& framebuffer
+)
 {
+    UploadFramebuffer(framebuffer);
+
     const float clearColor[] =
     {
-        0.1f,
-        0.2f,
-        0.4f,
+        0.0f,
+        0.0f,
+        0.0f,
         1.0f
     };
 
@@ -218,6 +389,57 @@ void Render()
     gContext->ClearRenderTargetView(
         gRenderTarget,
         clearColor
+    );
+
+    D3D11_VIEWPORT viewport = {};
+
+    viewport.TopLeftX = 0.0f;
+    viewport.TopLeftY = 0.0f;
+
+    viewport.Width = 1280.0f;
+    viewport.Height = 720.0f;
+
+    viewport.MinDepth = 0.0f;
+    viewport.MaxDepth = 1.0f;
+
+    gContext->RSSetViewports(
+        1,
+        &viewport
+    );
+
+    gContext->IASetInputLayout(nullptr);
+
+    gContext->IASetPrimitiveTopology(
+        D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST
+    );
+
+    gContext->VSSetShader(
+        gFullscreenVS,
+        nullptr,
+        0
+    );
+
+    gContext->PSSetShader(
+        gFullscreenPS,
+        nullptr,
+        0
+    );
+
+    gContext->PSSetShaderResources(
+        0,
+        1,
+        &gVirtualScreenSRV
+    );
+
+    gContext->PSSetSamplers(
+        0,
+        1,
+        &gPointSampler
+    );
+
+    gContext->Draw(
+        3,
+        0
     );
 
     gSwapChain->Present(
@@ -313,6 +535,21 @@ int WINAPI WinMain(
         return 0;
     }
 
+    if (!CreateVirtualScreenSRV())
+    {
+        return 0;
+    }
+
+    if (!CreatePointSampler())
+    {
+        return 0;
+    }
+
+    if (!CreateFullscreenShaders())
+    {
+        return 0;
+    }
+
     MSG message = {};
 
     while (message.message != WM_QUIT)
@@ -330,7 +567,22 @@ int WINAPI WinMain(
         else
         {
             // Update();
-            Render();
+
+            framebuffer.Clear(0xFF000000);
+
+            for (int y = 50; y < 150; ++y)
+            {
+                for (int x = 80; x < 240; ++x)
+                {
+                    framebuffer.PutPixel(
+                        x,
+                        y,
+                        0xFF0000FF
+                    );
+                }
+            }
+
+            Render(framebuffer);
         }
     }
 
