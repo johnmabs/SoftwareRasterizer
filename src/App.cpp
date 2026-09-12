@@ -1,5 +1,7 @@
 #include "App.h"
 
+#include "Graphics/Display/D3D11Display.h"
+
 App::App()
     : m_framebuffer(
         VirtualWidth,
@@ -91,7 +93,10 @@ bool App::Initialize(
         return false;
     }
 
-    if (!m_display.Initialize(
+    m_display =
+        std::make_unique<D3D11Display>();
+
+    if (!m_display->Initialize(
         m_hwnd,
         m_framebuffer))
     {
@@ -135,7 +140,7 @@ int App::Run()
                 }
             }
 
-            m_display.Present(
+            m_display->Present(
                 m_framebuffer
             );
         }

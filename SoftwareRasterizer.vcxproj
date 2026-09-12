@@ -96,6 +96,7 @@
   <ItemGroup>
     <ClInclude Include="src\App.h" />
     <ClInclude Include="src\Graphics\Display\D3D11Display.h" />
+    <ClInclude Include="src\Graphics\Display\IDisplay.h" />
     <ClInclude Include="src\Graphics\Software\VirtualFramebuffer.h" />
   </ItemGroup>
   <ItemGroup>

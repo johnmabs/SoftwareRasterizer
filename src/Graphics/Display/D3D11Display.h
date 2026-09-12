@@ -4,9 +4,10 @@
 #include <d3d11.h>
 #include <dxgi.h>
 
+#include "IDisplay.h"
 #include "../Software/VirtualFramebuffer.h"
 
-class D3D11Display
+class D3D11Display final : public IDisplay
 {
 public:
     D3D11Display() = default;
@@ -18,11 +19,11 @@ public:
     bool Initialize(
         HWND hwnd,
         const VirtualFramebuffer& framebuffer
-    );
+    ) override;
 
     void Present(
         const VirtualFramebuffer& framebuffer
-    );
+    ) override;
 
 private:
     bool InitializeDevice(HWND hwnd);

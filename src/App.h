@@ -3,8 +3,9 @@
 #include <Windows.h>
 
 #include <cstdint>
+#include <memory>
 
-#include "Graphics/Display/D3D11Display.h"
+#include "Graphics/Display/IDisplay.h"
 #include "Graphics/Software/VirtualFramebuffer.h"
 
 class App
@@ -40,5 +41,5 @@ private:
 
     VirtualFramebuffer m_framebuffer;
 
-    D3D11Display m_display;
+    std::unique_ptr<IDisplay> m_display;
 };
