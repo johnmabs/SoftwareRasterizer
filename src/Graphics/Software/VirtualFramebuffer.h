@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "Color.h"
+
 class VirtualFramebuffer
 {
 public:
@@ -11,12 +13,12 @@ public:
         std::uint32_t height
     );
 
-    void Clear(std::uint32_t color);
+    void Clear(Color color);
 
     void PutPixel(
         std::int32_t x,
         std::int32_t y,
-        std::uint32_t color
+        Color color
     );
 
     [[nodiscard]]

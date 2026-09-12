@@ -125,7 +125,7 @@ int App::Run()
         else
         {
             m_framebuffer.Clear(
-                0xFF000000
+                Colors::Black
             );
 
             for (int y = 50; y < 150; ++y)
@@ -135,7 +135,7 @@ int App::Run()
                     m_framebuffer.PutPixel(
                         x,
                         y,
-                        0xFF0000FF
+                        Colors::Red
                     );
                 }
             }

@@ -15,19 +15,19 @@ VirtualFramebuffer::VirtualFramebuffer(
 {
 }
 
-void VirtualFramebuffer::Clear(std::uint32_t color)
+void VirtualFramebuffer::Clear(Color color)
 {
     std::fill(
         m_pixels.begin(),
         m_pixels.end(),
-        color
+        color.Value()
     );
 }
 
 void VirtualFramebuffer::PutPixel(
     std::int32_t x,
     std::int32_t y,
-    std::uint32_t color
+    Color color
 )
 {
     if (x < 0 || y < 0)
@@ -45,7 +45,7 @@ void VirtualFramebuffer::PutPixel(
         static_cast<std::size_t>(y) * m_width +
         static_cast<std::size_t>(x);
 
-    m_pixels[index] = color;
+    m_pixels[index] = color.Value();
 }
 
 std::uint32_t VirtualFramebuffer::GetWidth() const noexcept

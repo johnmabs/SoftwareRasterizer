@@ -41,6 +41,9 @@
     <ClInclude Include="src\Graphics\Display\IDisplay.h">
       <Filter>Fichiers d%27en-tête</Filter>
     </ClInclude>
+    <ClInclude Include="src\Graphics\Software\Color.h">
+      <Filter>Fichiers d%27en-tête</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\FullscreenVS.hlsl" />
