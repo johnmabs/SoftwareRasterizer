@@ -1,6 +1,10 @@
 #include <Windows.h>
 #include <d3d11.h>
 #include <dxgi.h>
+#include <cstring>
+#include <cstdint>
+
+#include "Graphics/Software/VirtualFramebuffer.h";
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -9,6 +13,8 @@ ID3D11Device* gDevice = nullptr;
 ID3D11DeviceContext* gContext = nullptr;
 IDXGISwapChain* gSwapChain = nullptr;
 ID3D11RenderTargetView* gRenderTarget = nullptr;
+
+ID3D11Texture2D* gVirtualScreenTexture = nullptr;
 
 bool InitializeD3D11(HWND hwnd)
 {
@@ -72,7 +78,6 @@ bool InitializeD3D11(HWND hwnd)
 
     return true;
 }
-
 void ShutdownD3D11()
 {
     if (gRenderTarget)
@@ -93,11 +98,105 @@ void ShutdownD3D11()
         gContext = nullptr;
     }
 
+    if (gVirtualScreenTexture)
+    {
+        gVirtualScreenTexture->Release();
+        gVirtualScreenTexture = nullptr;
+    }
+
     if (gDevice)
     {
         gDevice->Release();
         gDevice = nullptr;
     }
+}
+
+bool CreateVirtualScreenTexture(
+    std::uint32_t width,
+    std::uint32_t height
+)
+{
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width = width;
+    desc.Height = height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.SampleDesc.Quality = 0;
+    desc.Usage = D3D11_USAGE_DYNAMIC;
+    desc.BindFlags =
+        D3D11_BIND_SHADER_RESOURCE;
+    desc.CPUAccessFlags =
+        D3D11_CPU_ACCESS_WRITE;
+    desc.MiscFlags = 0;
+
+    HRESULT result =
+        gDevice->CreateTexture2D(
+            &desc,
+            nullptr,
+            &gVirtualScreenTexture
+        );
+
+    return SUCCEEDED(result);
+}
+
+void UploadFramebuffer(
+    const VirtualFramebuffer& framebuffer
+)
+{
+    D3D11_MAPPED_SUBRESOURCE mapped = {};
+
+    HRESULT result =
+        gContext->Map(
+            gVirtualScreenTexture,
+            0,
+            D3D11_MAP_WRITE_DISCARD,
+            0,
+            &mapped
+        );
+
+    if (FAILED(result))
+    {
+        return;
+    }
+
+    const std::uint8_t* source =
+        reinterpret_cast<const std::uint8_t*>(
+            framebuffer.GetData()
+            );
+
+    std::uint8_t* destination =
+        static_cast<std::uint8_t*>(
+            mapped.pData
+            );
+
+    const std::size_t sourceRowSize =
+        static_cast<std::size_t>(
+            framebuffer.GetWidth()
+            ) * sizeof(std::uint32_t);
+
+    for (std::uint32_t y = 0;
+        y < framebuffer.GetHeight();
+        ++y)
+    {
+        std::memcpy(
+            destination +
+            static_cast<std::size_t>(y) *
+            mapped.RowPitch,
+
+            source +
+            static_cast<std::size_t>(y) *
+            sourceRowSize,
+
+            sourceRowSize
+        );
+    }
+
+    gContext->Unmap(
+        gVirtualScreenTexture,
+        0
+    );
 }
 
 void Render()
@@ -184,6 +283,8 @@ int WINAPI WinMain(
         return 0;
     }
 
+    VirtualFramebuffer framebuffer(320, 200);
+
     ShowWindow(hwnd, showCommand);
 
     if (!InitializeD3D11(hwnd))
@@ -191,6 +292,20 @@ int WINAPI WinMain(
         MessageBox(
             hwnd,
             L"Impossible d'initialiser DirectX 11.",
+            L"Erreur",
+            MB_OK
+        );
+
+        return 0;
+    }
+
+    if (!CreateVirtualScreenTexture(
+        framebuffer.GetWidth(),
+        framebuffer.GetHeight()))
+    {
+        MessageBox(
+            hwnd,
+            L"Impossible de créer la texture virtuelle.",
             L"Erreur",
             MB_OK
         );
